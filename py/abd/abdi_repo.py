@@ -17,6 +17,7 @@ import contextlib
 import shutil
 
 import phlgit_commit
+import phlgitx_ignoreident
 import phlsys_git
 import phlsys_subprocess
 
@@ -50,6 +51,11 @@ def setup_repo_context(repo_url, repo_path):
     try:
         repo = phlsys_git.Repo(repo_path)
 
+        # make sure we have no problems with 'ident' strings, we won't build
+        # from arcyd so it shouldn't be externally visible that we don't expand
+        # them.
+        phlgitx_ignoreident.ensure_repo_ignoring(repo_path)
+
         # test pushing to master
         repo('checkout', 'origin/master')
         phlgit_commit.allow_empty(repo, 'test commit for pushing')
@@ -57,10 +63,8 @@ def setup_repo_context(repo_url, repo_path):
         repo('checkout', '-')
 
         # test push to special refs
-        repo(
-            'push', 'origin', '--dry-run', 'HEAD:refs/arcyd/test')
-        repo(
-            'push', 'origin', '--dry-run', 'HEAD:refs/heads/dev/arcyd/test')
+        repo('push', 'origin', '--dry-run', 'HEAD:refs/arcyd/test')
+        repo('push', 'origin', '--dry-run', 'HEAD:refs/heads/dev/arcyd/test')
 
         # fetch the 'landed' and 'abandoned' refs if they exist
         abdt_git.checkout_master_fetch_special_refs(repo, 'origin')

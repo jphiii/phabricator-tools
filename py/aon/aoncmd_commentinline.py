@@ -1,25 +1,28 @@
-"""create a comment on differential reviews.
+"""create an inline comment on a differential review.
+
+    Note: this will create the comments but not submit them.  You must run
+    arcyon comment with the --attach-inlines option in order to actually
+    submit these.
 
 usage examples:
-    comment on revision '1':
-    $ arcyon comment 1 -m 'hello revision 1, how are you?'
-
-    accept revision '1':
-    $ arcyon comment 1 -m 'looks good' --action accept
-
-    comment on revisions 1 and 2, reading the message from 'mymessage':
-    $ arcyon comment 1 2 --message-file mymessage
+    comment on revision '1', file requestprocessor.py, starting on line 5,
+    spanning 4 lines in total:
+    $ arcyon comment-inline 1 -s 5 -l 3 --filepath requestprocessor.py
+      -m 'hello revision 1, these three lines will leak memory, please fix'
 
 """
 # =============================================================================
 # CONTENTS
 # -----------------------------------------------------------------------------
-# aoncmd_comment
+# aoncmd_commentinline
 #
 # Public Functions:
 #   getFromfilePrefixChars
 #   setupParser
 #   process
+#
+# Public Assignments:
+#   DEFAULT_ID_VALUE
 #
 # -----------------------------------------------------------------------------
 # (this contents block is generated, edits will be lost)
@@ -29,10 +32,11 @@ from __future__ import absolute_import
 
 import argparse
 import sys
-import textwrap
 
 import phlcon_differential
 import phlsys_makeconduit
+
+DEFAULT_ID_VALUE = -1
 
 
 def getFromfilePrefixChars():
@@ -40,23 +44,11 @@ def getFromfilePrefixChars():
 
 
 def setupParser(parser):
-    actions = parser.add_argument_group(
-        'action arguments',
-        'use any of ' + textwrap.fill(
-            str(phlcon_differential.USER_ACTIONS.keys())))
-
     parser.add_argument(
-        'ids',
+        'id',
         type=int,
-        nargs="*",
-        default=[],
-        help="the revisions to comment on (e.g. 1)")
-    parser.add_argument(
-        '--ids-file',
-        metavar='FILE',
-        type=argparse.FileType('r'),
-        help="a file to read ids from, use '-' to specify stdin")
-
+        default=DEFAULT_ID_VALUE,
+        help="the revision id to comment on (e.g. 1)")
     parser.add_argument(
         '--message', '-m',
         metavar="M",
@@ -69,54 +61,58 @@ def setupParser(parser):
         type=argparse.FileType('r'),
         help="a file to read the message from, use '-' for stdin")
     parser.add_argument(
-        '--silent',
-        action='store_true',
-        help="don't send notification emails for this comment")
-    parser.add_argument(
-        '--attach-inlines',
-        action='store_true',
-        help="attach pending inline comments")
-    actions.add_argument(
-        '--action', '-a',
-        choices=phlcon_differential.USER_ACTIONS.keys(),
-        metavar="ACTION",
-        default='comment',
+        '--filepath', '-f',
+        metavar="FILE",
+        default="",
+        required=True,
         type=str,
-        help="perform an action on a review")
+        help="the filename of the file to comment on")
+    parser.add_argument(
+        '--start-line', '-s',
+        metavar="#",
+        required=True,
+        type=int,
+        help="starting line of the comment")
+    parser.add_argument(
+        '--end-line-offset', '-l',
+        metavar="#",
+        default=0,
+        type=int,
+        help="number of extra lines the comment should span, the default is 0"
+             "meaning that the comment spans one line only.")
+    parser.add_argument(
+        '--left-side', '-o',
+        action='store_true',
+        help="comment on the left (old) side of the diff")
 
     phlsys_makeconduit.add_argparse_arguments(parser)
 
 
 def process(args):
+    if args.id == DEFAULT_ID_VALUE:
+        print "Please specify a revision id as the first argument"
+        sys.exit(1)
+
     conduit = phlsys_makeconduit.make_conduit(
         args.uri, args.user, args.cert, args.act_as_user)
 
-    d = {
-        'message': args.message,
-        'silent': args.silent,
-        'action': phlcon_differential.USER_ACTIONS[args.action],
-        'attach_inlines': args.attach_inlines
-    }
-
+    message = args.message
     if args.message_file:
-        d['message'] += args.message_file.read()
+        message += args.message_file.read()
 
-    ids = args.ids
-    if args.ids_file:
-        ids.extend([int(i) for i in args.ids_file.read().split()])
+    result = phlcon_differential.create_inline_comment(
+        conduit,
+        args.id,
+        args.filepath,
+        args.start_line,
+        message,
+        not args.left_side,
+        args.end_line_offset)
 
-    if not ids:
-        print "error: you have not specified any revision ids"
-        sys.exit(1)
-
-    for i in ids:
-        d["revision_id"] = i
-        result = conduit("differential.createcomment", d)
-        print result
-
+    print result
 
 # -----------------------------------------------------------------------------
-# Copyright (C) 2013-2014 Bloomberg Finance L.P.
+# Copyright (C) 2014 Bloomberg Finance L.P.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to

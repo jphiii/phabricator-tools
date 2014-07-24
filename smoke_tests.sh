@@ -34,12 +34,14 @@ function run_test_script() {
         exit 1
     fi
     set -e # exit immediately on error
+    printf "."
 }
 
 run_test_script "testbed/arcyd" "exercise_arcyd.sh"
 run_test_script "testbed/arcyon" "exercise_arcyon.sh"
 run_test_script "testbed/barc" "smoketest.sh"
 run_test_script "testbed/git-phab-log" "smoketest.sh"
+run_test_script "testbed/conduit-proxy" "smoketest.sh"
 # -----------------------------------------------------------------------------
 # Copyright (C) 2013-2014 Bloomberg Finance L.P.
 #
