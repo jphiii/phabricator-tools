@@ -43,6 +43,6 @@ connection arguments:
 
 usage examples:
     comment on revision '1', file requestprocessor.py, starting on line 5,
-    spanning 3 lines:
+    spanning 4 lines in total:
     $ arcyon comment-inline 1 -s 5 -l 3 --filepath requestprocessor.py
       -m 'hello revision 1, these three lines will leak memory, please fix'
